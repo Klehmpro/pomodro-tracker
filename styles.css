@@ -1,0 +1,232 @@
+body {
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    transition: background 0.3s, color 0.3s;
+}
+
+body.dark-mode {
+    background: #121212;
+    color: #f5f5f5;
+}
+
+body.light-mode {
+    background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+    color: #333;
+}
+
+.container {
+    text-align: center;
+    background: #1e1e1e;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+    animation: fadeIn 1s ease-in-out;
+    transition: background 0.3s, color 0.3s;
+    max-width: 600px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+body.light-mode .container {
+    background: white;
+    color: #333;
+}
+
+.timers {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+}
+
+.progress-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 120px;
+    height: 120px;
+}
+
+.progress-ring {
+    position: absolute;
+    transform: rotate(-90deg);
+}
+
+.progress-ring__circle {
+    transition: stroke-dashoffset 0.35s;
+    transform-origin: 50% 50%;
+    stroke: #00bfff;
+    animation: strokeColorChange 1s infinite alternate;
+}
+
+@keyframes strokeColorChange {
+    0% {
+        stroke: #00bfff;
+    }
+
+    100% {
+        stroke: #ff1493;
+    }
+}
+
+body.dark-mode .progress-ring__circle {
+    stroke: #ff6347;
+}
+
+.time-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    color: inherit;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.notification {
+    position: absolute;
+    top: 0;
+    right: -20px;
+    background-color: red;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.buttons {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+button {
+    background-color: #00bfff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-top: 14px;
+}
+
+button:hover {
+    background-color: #ffa500;
+    /* Orange color for hover */
+}
+
+body.dark-mode button {
+    background-color: #ff6347;
+}
+
+body.dark-mode button:hover {
+    background-color: #ffa500;
+    /* Orange color for hover in dark mode */
+}
+.manual-entry-form {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    /* Ajoute un espace entre les éléments */
+}
+
+.manual-entry-form label,
+.manual-entry-form input {
+    margin-right: 10px;
+    /* Ajoute un espace entre le label et l'input */
+}
+
+.manual-entry-form input {
+    width: 110px;
+    /* Définir une largeur fixe pour les inputs */
+    box-sizing: border-box;
+    /* Assurer que le padding et la bordure sont inclus dans la largeur totale */
+}
+
+.form-buttons {
+    display: flex;
+    gap: 10px;
+    /* Ajoute un espace entre les boutons */
+}
+#spotify-info {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+}
+
+#spotify-track,
+#spotify-artist {
+    margin: 5px 0;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.cycle-options {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.cycle-options-horizontal {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+}
+
+.cycle-options label {
+    margin-right: 10px;
+}
+
+.cycle-options-2h {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    margin-top: 10px;
+}
+
+           #end-cycle-message {
+               display: none;
+               color: white;
+               background-color: red;
+               padding: 20px;
+               text-align: center;
+               font-size: 20px;
+           }
+    
+           .center-button {
+               display: flex;
+               justify-content: center;
+               flex-direction: row;
+               padding-top: 10px;
+           }

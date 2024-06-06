@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="dark-mode">
+    <div class="container center-content">
+        <h1 id="main-title">Pomodoro Tracker</h1>
+        <div id="end-cycle-message">Cycle terminé!</div>
+        <div class="timers">
+            <div class="progress-container">
+                <svg class="progress-ring" width="120" height="120">
+                    <circle class="progress-ring__circle" stroke="green" stroke-width="4" fill="transparent" r="54"
+                        cx="60" cy="60" />
+                </svg>
+                <div id="timer" class="time-display">00:00</div>
+                <div id="work-cycle-notification" class="notification">0</div>
+            </div>
+            <div class="progress-container">
+                <svg class="progress-ring" width="120" height="120">
+                    <circle class="progress-ring__circle total-progress-ring__circle" stroke="green" stroke-width="4"
+                        fill="transparent" r="54" cx="60" cy="60" />
+                </svg>
+                <div id="total-time-display" class="time-display">00:00:00</div>
+            </div>
+        </div>
+        <div class="buttons">
+            <button id="start-button">Start</button>
+            <button id="reset-button">Reset</button>
+            <button id="theme-toggle-button">Light Mode</button>
+            <button id="set-10s-button">Set Timer to 10s</button>
+        </div>
+        <div class="cycle-options">
+            <div class="cycle-options-horizontal">
+                <input type="radio" id="cycle-25-5" name="cycle" value="25-5">
+                <label for="cycle-25-5">25/5 Cycle</label>
+                <input type="radio" id="cycle-50-10" name="cycle" value="50-10">
+                <label for="cycle-50-10">50/10 Cycle</label>
+            </div>
+            <div class="cycle-options-check" style="padding-top: 15px;">
+                <input type="checkbox" id="enable-2h-cycle" name="enable-2h-cycle">
+                <label for="enable-2h-cycle">Enable 2h</label>
+                <input type="checkbox" id="enable-2h30-cycle" name="enable-2h30-cycle">
+                <label for="enable-2h30-cycle">Enable 2h30</label>
+                <input type="checkbox" id="enable-3h-cycle" name="enable-3h-cycle">
+                <label for="enable-3h-cycle">Enable 3h</label>
+                <input type="checkbox" id="enable-3h30-cycle" name="enable-3h30-cycle">
+                <label for="enable-3h30-cycle">Enable 3h30</label>
+                <input type="checkbox" id="enable-4h-cycle" name="enable-4h-cycle">
+                <label for="enable-4h-cycle">Enable 4h</label>
+                <input type="checkbox" id="enable-4h30-cycle" name="enable-4h30-cycle">
+                <label for="enable-4h30-cycle">Enable 4h30</label>
+                <input type="checkbox" id="enable-5h-cycle" name="enable-5h-cycle">
+                <label for="enable-5h-cycle">Enable 5h</label>
+            </div>
+        </div>
+        <h2>Ajouter ou Retirer les heures cumulées</h2>
+        <form id="manual-entry-form" class="manual-entry-form">
+            <label for="hours-input">Heures et Minutes :</label>
+            <input type="text" id="hours-input" placeholder="hh,mm">
+            <div class="form-buttons">
+                <button type="button" id="add-time-button">Ajouter</button>
+                <button type="button" id="subtract-time-button">Retirer</button>
+            </div>
+        </form>
+        <h2>Heures totales de Pomodoro : <span id="total-hours">00:00:00</span></h2>
+        <h2>Total des cycles : <span id="total-cycles">0</span></h2>
+        <button id="reset-hours-button">Réinitialiser les Heures</button>
+        <div>
+            <h2>Temps total des cycles : <span id="overall-total-time">00:00:00</span></h2>
+            <button id="reset-overall-time-button">Réinitialiser le temps total</button>
+        </div>
+        <div id="spotify-info">
+            <h2>Spotify Now Playing</h2>
+            <div id="spotify-track">Track: <span id="track-name">None</span></div>
+            <div id="spotify-artist">Artist: <span id="artist-name">None</span></div>
+        </div>
+        <audio id="decompte-sound" src="alarme/decompte.mp3"></audio>
+        <audio id="end-cycle-sound" src="alarme/end cycle.mp3"></audio>
+        <audio id="bell-sound" src="alarme/bell.mp3"></audio>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const FULL_DASH_ARRAY = 2 * Math.PI * 54;
+            const WORK_TIME_25 = 25 * 60; // 25 minutes in seconds
+            const BREAK_TIME_5 = 5 * 60; // 5 minutes in seconds
+            const WORK_TIME_50 = 50 * 60; // 50 minutes in seconds
+            const BREAK_TIME_10 = 10 * 60; // 10 minutes in seconds
+            const TWO_HOURS_IN_SECONDS = 2 * 60 * 60; // 2 hours in seconds
+            const TWO_HOURS_THIRTY_IN_SECONDS = 2 * 60 * 60 + 30 * 60; // 2 hours 30 minutes in seconds
+            const THREE_HOURS_IN_SECONDS = 3 * 60 * 60; // 3 hours in seconds
+            const THREE_HOURS_THIRTY_IN_SECONDS = 3 * 60 * 60 + 30 * 60; // 3 hours 30 minutes in seconds
+            const FOUR_HOURS_IN_SECONDS = 4 * 60 * 60; // 4 hours in seconds
+            const FOUR_HOURS_THIRTY_IN_SECONDS = 4 * 60 * 60 + 30 * 60; // 4 hours 30 minutes in seconds
+            const FIVE_HOURS_IN_SECONDS = 5 * 60 * 60; // 5 hours in seconds
+
+            let workTimeSeconds = 0;
+            let breakTimeSeconds = 0;
+            let timePassed = 0;
+            let timeLeft = workTimeSeconds;
+            let isWorkTime = true;
+            let timerInterval = null;
+            let totalPomodoroSeconds = 0;
+            let manualTotalSeconds = parseInt(localStorage.getItem('manualTotalSeconds')) || 0;
+            let workCycleCount = parseInt(localStorage.getItem('workCycleCount')) || 0;
+            let overallTotalSeconds = parseInt(localStorage.getItem('overallTotalSeconds')) || 0;
+            let totalCycles = parseInt(localStorage.getItem('totalCycles')) || 0; // New variable for total cycles
+            let lastUpdateTime = performance.now(); // Variable to store the last update time
+            let cycleSelected = false;
+            let twoHourCycleEnabled = false;
+            let twoHourThirtyCycleEnabled = false;
+            let threeHourCycleEnabled = false;
+            let threeHourThirtyCycleEnabled = false;
+            let fourHourCycleEnabled = false;
+            let fourHourThirtyCycleEnabled = false;
+            let fiveHourCycleEnabled = false;
+            let bellPlayed = false;
+            let decomptePlayed = false;
+            let cycleEnded = false; // Nouvelle variable pour suivre l'état de fin de cycle
+
+            const timerDisplay = document.getElementById('timer');
+            const totalTimeDisplay = document.getElementById('total-time-display');
+            const overallTotalTimeDisplay = document.getElementById('overall-total-time');
+            const totalCyclesDisplay = document.getElementById('total-cycles'); // New element for total cycles
+            const progressCircle = document.querySelectorAll('.progress-ring__circle')[0];
+            const totalProgressCircle = document.querySelectorAll('.progress-ring__circle')[1];
+            const startButton = document.getElementById('start-button');
+            const resetButton = document.getElementById('reset-button');
+            const themeToggleButton = document.getElementById('theme-toggle-button');
+            const set10sButton = document.getElementById('set-10s-button');
+            const addTimeButton = document.getElementById('add-time-button');
+            const subtractTimeButton = document.getElementById('subtract-time-button');
+            const hoursInput = document.getElementById('hours-input');
+            const totalHoursDisplay = document.getElementById('total-hours');
+            const resetHoursButton = document.getElementById('reset-hours-button');
+            const resetOverallTimeButton = document.getElementById('reset-overall-time-button');
+            const workCycleNotification = document.getElementById('work-cycle-notification');
+            const spotifyTrackName = document.getElementById('track-name');
+            const spotifyArtistName = document.getElementById('artist-name');
+            const decompteSound = document.getElementById('decompte-sound');
+            const endCycleSound = document.getElementById('end-cycle-sound');
+            const bellSound = document.getElementById('bell-sound');
+            const endCycleMessage = document.getElementById('end-cycle-message');
+            const mainTitle = document.getElementById('main-title');
+
+            const SPOTIFY_CLIENT_ID = 'c2002d2367b34e34b13cdb83a2c97b2b';
+            const SPOTIFY_CLIENT_SECRET = '1069f6ca6c1a41029ffdf7936d3a4d90';
+            const SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:5500/pomodoro.html';
+
+            let accessToken = '';
+            let spotifyInterval = null;
+
+            progressCircle.style.strokeDasharray = `${FULL_DASH_ARRAY} ${FULL_DASH_ARRAY}`;
+            progressCircle.style.strokeDashoffset = FULL_DASH_ARRAY;
+
+            totalProgressCircle.style.strokeDasharray = `${FULL_DASH_ARRAY} ${FULL_DASH_ARRAY}`;
+            totalProgressCircle.style.strokeDashoffset = FULL_DASH_ARRAY;
+
+            startButton.addEventListener('click', toggleTimer);
+            resetButton.addEventListener('click', resetAllTimers);
+            themeToggleButton.addEventListener('click', toggleTheme);
+            set10sButton.addEventListener('click', setTimersTo10s);
+            addTimeButton.addEventListener('click', addManualTime);
+            subtractTimeButton.addEventListener('click', subtractManualTime);
+            resetHoursButton.addEventListener('click', resetManualTotalHours);
+            resetOverallTimeButton.addEventListener('click', resetOverallTotalTime);
+            document.getElementById('cycle-25-5').addEventListener('click', () => setCycle(WORK_TIME_25, BREAK_TIME_5));
+            document.getElementById('cycle-50-10').addEventListener('click', () => setCycle(WORK_TIME_50, BREAK_TIME_10));
+            document.getElementById('enable-2h-cycle').addEventListener('change', enableTwoHourCycle);
+            document.getElementById('enable-2h30-cycle').addEventListener('change', enableTwoHourThirtyCycle);
+            document.getElementById('enable-3h-cycle').addEventListener('change', enableThreeHourCycle);
+            document.getElementById('enable-3h30-cycle').addEventListener('change', enableThreeHourThirtyCycle);
+            document.getElementById('enable-4h-cycle').addEventListener('change', enableFourHourCycle);
+            document.getElementById('enable-4h30-cycle').addEventListener('change', enableFourHourThirtyCycle);
+            document.getElementById('enable-5h-cycle').addEventListener('change', enableFiveHourCycle);
+
+            // Récupérer les valeurs depuis localStorage au chargement de la page
+            updateManualTotalTimeDisplay();
+            updateTotalTimeDisplay();
+            updateOverallTotalTimeDisplay();
+            updateTotalCyclesDisplay(); // New function to update total cycles display
+            workCycleNotification.textContent = workCycleCount;
+
+            accessToken = extractAccessTokenFromUrl();
+            if (!accessToken) {
+                getSpotifyAccessToken();
+            } else {
+                fetchCurrentlyPlaying();
+                spotifyInterval = setInterval(fetchCurrentlyPlaying, 1000);
+            }
+
+            let originalTitle = document.title;
+
+            function startTimer() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before starting the timer.");
+                    return;
+                }
+                lastUpdateTime = performance.now(); // Initialize the last update time
+                timerInterval = setInterval(() => {
+                    const now = performance.now();
+                    const elapsedTime = (now - lastUpdateTime) / 1000;
+                    lastUpdateTime = now;
+
+                    timePassed += elapsedTime;
+                    timeLeft = (isWorkTime ? workTimeSeconds : breakTimeSeconds) - timePassed;
+                    totalPomodoroSeconds += elapsedTime;
+                    overallTotalSeconds += elapsedTime;
+
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = Math.floor(timeLeft % 60);
+                    timerDisplay.textContent = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    updateTotalTimeDisplay();
+                    updateOverallTotalTimeDisplay();
+                    setCircleDashoffset(progressCircle, timeLeft / (isWorkTime ? workTimeSeconds : breakTimeSeconds));
+                    setCircleDashoffset(totalProgressCircle, totalPomodoroSeconds / (twoHourCycleEnabled ? TWO_HOURS_IN_SECONDS : twoHourThirtyCycleEnabled ? TWO_HOURS_THIRTY_IN_SECONDS : threeHourCycleEnabled ? THREE_HOURS_IN_SECONDS : threeHourThirtyCycleEnabled ? THREE_HOURS_THIRTY_IN_SECONDS : fourHourCycleEnabled ? FOUR_HOURS_IN_SECONDS : fourHourThirtyCycleEnabled ? FOUR_HOURS_THIRTY_IN_SECONDS : FIVE_HOURS_IN_SECONDS));
+
+                    // Play decompte sound at the last 5 seconds of the first half of work time in 50/10 cycle
+                    if (isWorkTime && workTimeSeconds === WORK_TIME_50 && timeLeft <= WORK_TIME_25 + 5 && timeLeft > WORK_TIME_25 && !decomptePlayed) {
+                        decompteSound.play();
+                        decomptePlayed = true;
+                    }
+
+                    // Play bell sound at the last 30 seconds of work time or break time
+                    if ((isWorkTime && !bellPlayed && timeLeft <= 30) || (!isWorkTime && !bellPlayed && timeLeft <= 30)) {
+                        bellSound.play();
+                        bellPlayed = true;
+                    }
+
+                    // Play decompte sound at the last 5 seconds of work or break time
+                    if ((isWorkTime && timeLeft <= 5 && !decomptePlayed) || (!isWorkTime && timeLeft <= 5 && !decomptePlayed)) {
+                        decompteSound.play();
+                        decomptePlayed = true;
+                    }
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        isWorkTime = !isWorkTime;
+                        timePassed = 0;
+                        decomptePlayed = false;
+                        bellPlayed = false;
+                        if (isWorkTime) {
+                            workCycleCount++;
+                            totalCycles++; // Increment total cycles
+                            localStorage.setItem('workCycleCount', workCycleCount);
+                            localStorage.setItem('totalCycles', totalCycles); // Save total cycles to local storage
+                            workCycleNotification.textContent = workCycleCount;
+                            updateTotalCyclesDisplay(); // Update total cycles display
+                        }
+                        if ((twoHourCycleEnabled && totalPomodoroSeconds >= TWO_HOURS_IN_SECONDS) || (twoHourThirtyCycleEnabled && totalPomodoroSeconds >= TWO_HOURS_THIRTY_IN_SECONDS) || (threeHourCycleEnabled && totalPomodoroSeconds >= THREE_HOURS_IN_SECONDS) || (threeHourThirtyCycleEnabled && totalPomodoroSeconds >= THREE_HOURS_THIRTY_IN_SECONDS) || (fourHourCycleEnabled && totalPomodoroSeconds >= FOUR_HOURS_IN_SECONDS) || (fourHourThirtyCycleEnabled && totalPomodoroSeconds >= FOUR_HOURS_THIRTY_IN_SECONDS) || (fiveHourCycleEnabled && totalPomodoroSeconds >= FIVE_HOURS_IN_SECONDS)) {
+                            // Play end cycle sound 1 second after decompte sound
+                            setTimeout(() => {
+                                endCycleSound.play();
+                                showEndCycleMessage();
+                                document.title = "Cycle terminé!";
+                                cycleEnded = true; // Mettre à jour l'état de fin de cycle
+                                const restoreTitle = () => {
+                                    document.title = originalTitle;
+                                    document.removeEventListener("visibilitychange", handleVisibilityChange);
+                                    cycleEnded = false; // Réinitialiser l'état de fin de cycle
+                                };
+                                const handleVisibilityChange = () => {
+                                    if (!document.hidden) {
+                                        restoreTitle();
+                                    }
+                                };
+                                setTimeout(() => {
+                                    restoreTitle();
+                                    hideEndCycleMessage();
+                                    // Appel à la fonction pour nettoyer le cache du navigateur
+                                    clearBrowserCache();
+                                }, 10000); // 60000ms = 1 minute
+                                document.addEventListener("visibilitychange", handleVisibilityChange);
+                            }, 1000);
+                            resetAllTimers();
+                        } else {
+                            startTimer(); // Start the next period immediately
+                        }
+                    }
+                    if (!cycleEnded) {
+                        updateTabTitle(); // Update the tab title every second
+                    }
+                }, 1000 / 60); // Updated to run at 60 FPS
+            }
+
+            function showEndCycleMessage() {
+                mainTitle.style.display = 'none';
+                endCycleMessage.style.display = 'block';
+            }
+
+            function hideEndCycleMessage() {
+                mainTitle.style.display = 'block';
+                endCycleMessage.style.display = 'none';
+            }
+
+            function setCircleDashoffset(circle, fraction) {
+                const circleDashoffset = FULL_DASH_ARRAY * (1 - fraction);
+                circle.style.strokeDashoffset = circleDashoffset;
+            }
+
+            function toggleTimer() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before starting the timer.");
+                    return;
+                }
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    decompteSound.pause();
+                    decompteSound.currentTime = 0;
+                    startButton.textContent = 'Start';
+                    // Sauvegarder le temps total des cycles lorsque le minuteur est arrêté
+                    localStorage.setItem('overallTotalSeconds', overallTotalSeconds);
+                } else {
+                    startTimer();
+                    startButton.textContent = 'Pause';
+                }
+            }
+
+            function resetAllTimers() {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                timePassed = 0;
+                timeLeft = workTimeSeconds;
+                totalPomodoroSeconds = 0;
+                isWorkTime = true;
+                decomptePlayed = false;
+                bellPlayed = false;
+                decompteSound.pause();
+                decompteSound.currentTime = 0;
+                bellSound.pause();
+                bellSound.currentTime = 0;
+                timerDisplay.textContent = formatTime(workTimeSeconds);
+                totalTimeDisplay.textContent = '00:00:00';
+                workCycleCount = 0;
+                localStorage.setItem('workCycleCount', workCycleCount);
+                workCycleNotification.textContent = workCycleCount;
+                setCircleDashoffset(progressCircle, 1);
+                setCircleDashoffset(totalProgressCircle, 1);
+                startButton.textContent = 'Start';
+                updateTabTitle();
+                cycleSelected = false;
+                twoHourCycleEnabled = false;
+                twoHourThirtyCycleEnabled = false;
+                threeHourCycleEnabled = false;
+                threeHourThirtyCycleEnabled = false;
+                fourHourCycleEnabled = false;
+                fourHourThirtyCycleEnabled = false;
+                fiveHourCycleEnabled = false;
+                document.getElementById('cycle-25-5').checked = false;
+                document.getElementById('cycle-50-10').checked = false;
+                document.getElementById('enable-2h-cycle').checked = false;
+                document.getElementById('enable-2h30-cycle').checked = false;
+                document.getElementById('enable-3h-cycle').checked = false;
+                document.getElementById('enable-3h30-cycle').checked = false;
+                document.getElementById('enable-4h-cycle').checked = false;
+                document.getElementById('enable-4h30-cycle').checked = false;
+                document.getElementById('enable-5h-cycle').checked = false;
+                localStorage.setItem('overallTotalSeconds', overallTotalSeconds); // Sauvegarder le temps total des cycles
+                localStorage.setItem('totalCycles', totalCycles); // Save total cycles to local storage
+            }
+
+            function setCycle(workTime, breakTime) {
+                workTimeSeconds = workTime;
+                breakTimeSeconds = breakTime;
+                cycleSelected = true;
+                resetTimerDisplay();
+            }
+
+            function enableTwoHourCycle() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before enabling the 2h cycle.");
+                    document.getElementById('enable-2h-cycle').checked = false;
+                    return;
+                }
+                twoHourCycleEnabled = document.getElementById('enable-2h-cycle').checked;
+                if (twoHourCycleEnabled) {
+                    twoHourThirtyCycleEnabled = false;
+                    threeHourCycleEnabled = false;
+                    threeHourThirtyCycleEnabled = false;
+                    fourHourCycleEnabled = false;
+                    fourHourThirtyCycleEnabled = false;
+                    fiveHourCycleEnabled = false;
+                    document.getElementById('enable-2h30-cycle').checked = false;
+                    document.getElementById('enable-3h-cycle').checked = false;
+                    document.getElementById('enable-3h30-cycle').checked = false;
+                    document.getElementById('enable-4h-cycle').checked = false;
+                    document.getElementById('enable-4h30-cycle').checked = false;
+                    document.getElementById('enable-5h-cycle').checked = false;
+                }
+                resetTimerDisplay();
+            }
+
+            function enableTwoHourThirtyCycle() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before enabling the 2h30 cycle.");
+                    document.getElementById('enable-2h30-cycle').checked = false;
+                    return;
+                }
+                twoHourThirtyCycleEnabled = document.getElementById('enable-2h30-cycle').checked;
+                if (twoHourThirtyCycleEnabled) {
+                    twoHourCycleEnabled = false;
+                    threeHourCycleEnabled = false;
+                    threeHourThirtyCycleEnabled = false;
+                    fourHourCycleEnabled = false;
+                    fourHourThirtyCycleEnabled = false;
+                    fiveHourCycleEnabled = false;
+                    document.getElementById('enable-2h-cycle').checked = false;
+                    document.getElementById('enable-3h-cycle').checked = false;
+                    document.getElementById('enable-3h30-cycle').checked = false;
+                    document.getElementById('enable-4h-cycle').checked = false;
+                    document.getElementById('enable-4h30-cycle').checked = false;
+                    document.getElementById('enable-5h-cycle').checked = false;
+                }
+                resetTimerDisplay();
+            }
+
+            function enableThreeHourCycle() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 ou 50/10) before enabling the 3h cycle.");
+                    document.getElementById('enable-3h-cycle').checked = false;
+                    return;
+                }
+                threeHourCycleEnabled = document.getElementById('enable-3h-cycle').checked;
+                if (threeHourCycleEnabled) {
+                    twoHourCycleEnabled = false;
+                    twoHourThirtyCycleEnabled = false;
+                    threeHourThirtyCycleEnabled = false;
+                    fourHourCycleEnabled = false;
+                    fourHourThirtyCycleEnabled = false;
+                    fiveHourCycleEnabled = false;
+                    document.getElementById('enable-2h-cycle').checked = false;
+                    document.getElementById('enable-2h30-cycle').checked = false;
+                    document.getElementById('enable-3h30-cycle').checked = false;
+                    document.getElementById('enable-4h-cycle').checked = false;
+                    document.getElementById('enable-4h30-cycle').checked = false;
+                    document.getElementById('enable-5h-cycle').checked = false;
+                }
+                resetTimerDisplay();
+            }
+
+            function enableThreeHourThirtyCycle() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before enabling the 3h30 cycle.");
+                    document.getElementById('enable-3h30-cycle').checked = false;
+                    return;
+                }
+                threeHourThirtyCycleEnabled = document.getElementById('enable-3h30-cycle').checked;
+                if (threeHourThirtyCycleEnabled) {
+                    twoHourCycleEnabled = false;
+                    twoHourThirtyCycleEnabled = false;
+                    threeHourCycleEnabled = false;
+                    fourHourCycleEnabled = false;
+                    fourHourThirtyCycleEnabled = false;
+                    fiveHourCycleEnabled = false;
+                    document.getElementById('enable-2h-cycle').checked = false;
+                    document.getElementById('enable-2h30-cycle').checked = false;
+                    document.getElementById('enable-3h-cycle').checked = false;
+                    document.getElementById('enable-4h-cycle').checked = false;
+                    document.getElementById('enable-4h30-cycle').checked = false;
+                    document.getElementById('enable-5h-cycle').checked = false;
+                }
+                resetTimerDisplay();
+            }
+
+            function enableFourHourCycle() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before enabling the 4h cycle.");
+                    document.getElementById('enable-4h-cycle').checked = false;
+                    return;
+                }
+                fourHourCycleEnabled = document.getElementById('enable-4h-cycle').checked;
+                if (fourHourCycleEnabled) {
+                    twoHourCycleEnabled = false;
+                    twoHourThirtyCycleEnabled = false;
+                    threeHourCycleEnabled = false;
+                    threeHourThirtyCycleEnabled = false;
+                    fourHourThirtyCycleEnabled = false;
+                    fiveHourCycleEnabled = false;
+                    document.getElementById('enable-2h-cycle').checked = false;
+                    document.getElementById('enable-2h30-cycle').checked = false;
+                    document.getElementById('enable-3h-cycle').checked = false;
+                    document.getElementById('enable-3h30-cycle').checked = false;
+                    document.getElementById('enable-4h30-cycle').checked = false;
+                    document.getElementById('enable-5h-cycle').checked = false;
+                }
+                resetTimerDisplay();
+            }
+
+            function enableFourHourThirtyCycle() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before enabling the 4h30 cycle.");
+                    document.getElementById('enable-4h30-cycle').checked = false;
+                    return;
+                }
+                fourHourThirtyCycleEnabled = document.getElementById('enable-4h30-cycle').checked;
+                if (fourHourThirtyCycleEnabled) {
+                    twoHourCycleEnabled = false;
+                    twoHourThirtyCycleEnabled = false;
+                    threeHourCycleEnabled = false;
+                    threeHourThirtyCycleEnabled = false;
+                    fourHourCycleEnabled = false;
+                    fiveHourCycleEnabled = false;
+                    document.getElementById('enable-2h-cycle').checked = false;
+                    document.getElementById('enable-2h30-cycle').checked = false;
+                    document.getElementById('enable-3h-cycle').checked = false;
+                    document.getElementById('enable-3h30-cycle').checked = false;
+                    document.getElementById('enable-4h-cycle').checked = false;
+                    document.getElementById('enable-5h-cycle').checked = false;
+                }
+                resetTimerDisplay();
+            }
+
+            function enableFiveHourCycle() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before enabling the 5h cycle.");
+                    document.getElementById('enable-5h-cycle').checked = false;
+                    return;
+                }
+                fiveHourCycleEnabled = document.getElementById('enable-5h-cycle').checked;
+                if (fiveHourCycleEnabled) {
+                    twoHourCycleEnabled = false;
+                    twoHourThirtyCycleEnabled = false;
+                    threeHourCycleEnabled = false;
+                    threeHourThirtyCycleEnabled = false;
+                    fourHourCycleEnabled = false;
+                    fourHourThirtyCycleEnabled = false;
+                    document.getElementById('enable-2h-cycle').checked = false;
+                    document.getElementById('enable-2h30-cycle').checked = false;
+                    document.getElementById('enable-3h-cycle').checked = false;
+                    document.getElementById('enable-3h30-cycle').checked = false;
+                    document.getElementById('enable-4h-cycle').checked = false;
+                    document.getElementById('enable-4h30-cycle').checked = false;
+                }
+                resetTimerDisplay();
+            }
+
+            function resetTimerDisplay() {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                timePassed = 0;
+                timeLeft = workTimeSeconds;
+                decomptePlayed = false;
+                bellPlayed = false;
+                decompteSound.pause();
+                decompteSound.currentTime = 0;
+                bellSound.pause();
+                bellSound.currentTime = 0;
+                timerDisplay.textContent = formatTime(workTimeSeconds);
+                setCircleDashoffset(progressCircle, 1);
+                startButton.textContent = 'Start';
+                updateTabTitle();
+            }
+
+            function toggleTheme() {
+                document.body.classList.toggle('dark-mode');
+                document.body.classList.toggle('light-mode');
+                themeToggleButton.textContent = document.body.classList.contains('dark-mode') ? 'Light Mode' : 'Dark Mode';
+            }
+
+            function addManualTime() {
+                const time = hoursInput.value.split(',');
+                const hours = parseInt(time[0]) || 0;
+                const minutes = parseInt(time[1]) || 0;
+                const additionalSeconds = (hours * 3600) + (minutes * 60);
+                manualTotalSeconds += additionalSeconds;
+                localStorage.setItem('manualTotalSeconds', manualTotalSeconds);
+                updateManualTotalTimeDisplay();
+                clearInputs();
+            }
+
+            function subtractManualTime() {
+                const time = hoursInput.value.split(',');
+                const hours = parseInt(time[0]) || 0;
+                const minutes = parseInt(time[1]) || 0;
+                const subtractionSeconds = (hours * 3600) + (minutes * 60);
+                manualTotalSeconds = Math.max(0, manualTotalSeconds - subtractionSeconds);
+                localStorage.setItem('manualTotalSeconds', manualTotalSeconds);
+                updateManualTotalTimeDisplay();
+                clearInputs();
+            }
+
+            function resetManualTotalHours() {
+                manualTotalSeconds = 0;
+                localStorage.setItem('manualTotalSeconds', manualTotalSeconds);
+                updateManualTotalTimeDisplay();
+            }
+
+            function resetOverallTotalTime() {
+                overallTotalSeconds = 0;
+                totalCycles = 0; // Reset total cycles
+                localStorage.setItem('overallTotalSeconds', overallTotalSeconds);
+                localStorage.setItem('totalCycles', totalCycles); // Save total cycles to local storage
+                updateOverallTotalTimeDisplay();
+                updateTotalCyclesDisplay(); // Update total cycles display
+            }
+
+            function clearInputs() {
+                hoursInput.value = '';
+            }
+
+            function updateManualTotalTimeDisplay() {
+                const totalHours = Math.floor(manualTotalSeconds / 3600);
+                const totalMinutes = Math.floor((manualTotalSeconds % 3600) / 60);
+                const totalSecs = Math.floor(manualTotalSeconds % 60);
+                totalHoursDisplay.textContent = `${totalHours < 10 ? '0' : ''}${totalHours}:${totalMinutes < 10 ? '0' : ''}${totalMinutes}:${totalSecs < 10 ? '0' : ''}${totalSecs}`;
+            }
+
+            function updateTotalTimeDisplay() {
+                const totalHours = Math.floor(totalPomodoroSeconds / 3600);
+                const totalMinutes = Math.floor((totalPomodoroSeconds % 3600) / 60);
+                const totalSecs = Math.floor(totalPomodoroSeconds % 60);
+                totalTimeDisplay.textContent = `${totalHours < 10 ? '0' : ''}${totalHours}:${totalMinutes < 10 ? '0' : ''}${totalMinutes}:${totalSecs < 10 ? '0' : ''}${totalSecs}`;
+            }
+
+            function updateOverallTotalTimeDisplay() {
+                const totalHours = Math.floor(overallTotalSeconds / 3600);
+                const totalMinutes = Math.floor((overallTotalSeconds % 3600) / 60);
+                const totalSecs = Math.floor(overallTotalSeconds % 60);
+                overallTotalTimeDisplay.textContent = `${totalHours < 10 ? '0' : ''}${totalHours}:${totalMinutes < 10 ? '0' : ''}${totalMinutes}:${totalSecs < 10 ? '0' : ''}${totalSecs}`;
+            }
+
+            function updateTotalCyclesDisplay() {
+                totalCyclesDisplay.textContent = totalCycles;
+            }
+
+            function setTimersTo10s() {
+                if (!cycleSelected) {
+                    alert("Please select a cycle (25/5 or 50/10) before setting the timer.");
+                    return;
+                }
+                clearInterval(timerInterval);
+                timerInterval = null;
+                timePassed = (isWorkTime ? workTimeSeconds : breakTimeSeconds) - 10;
+                timeLeft = 10;
+                totalPomodoroSeconds = (twoHourCycleEnabled ? TWO_HOURS_IN_SECONDS : twoHourThirtyCycleEnabled ? TWO_HOURS_THIRTY_IN_SECONDS : threeHourCycleEnabled ? THREE_HOURS_IN_SECONDS : threeHourThirtyCycleEnabled ? THREE_HOURS_THIRTY_IN_SECONDS : fourHourCycleEnabled ? FOUR_HOURS_IN_SECONDS : fourHourThirtyCycleEnabled ? FOUR_HOURS_THIRTY_IN_SECONDS : FIVE_HOURS_IN_SECONDS) - 10;
+                isWorkTime = true;
+                decomptePlayed = false;
+                bellPlayed = false;
+                decompteSound.pause();
+                decompteSound.currentTime = 0;
+                bellSound.pause();
+                bellSound.currentTime = 0;
+                timerDisplay.textContent = "00:10";
+                updateTotalTimeDisplay();
+                updateOverallTotalTimeDisplay();
+                setCircleDashoffset(progressCircle, 1);
+                setCircleDashoffset(totalProgressCircle, 1);
+                startButton.textContent = 'Start';
+                updateTabTitle();
+            }
+
+            function getSpotifyAccessToken() {
+                window.location.href = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}&scope=user-read-playback-state user-read-currently-playing`;
+            }
+
+            function extractAccessTokenFromUrl() {
+                const hash = window.location.hash;
+                if (hash) {
+                    const params = new URLSearchParams(hash.substring(1));
+                    return params.get('access_token');
+                }
+                return null;
+            }
+
+            function fetchCurrentlyPlaying() {
+                if (!accessToken) return;
+                fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                })
+                    .then(function (response) {
+                        if (response.status === 204) {
+                            spotifyTrackName.textContent = 'None';
+                            spotifyArtistName.textContent = 'None';
+                            return null;
+                        }
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        if (data && data.item) {
+                            spotifyTrackName.textContent = data.item.name;
+                            spotifyArtistName.textContent = data.item.artists.map(function (artist) {
+                                return artist.name;
+                            }).join(', ');
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Error fetching currently playing track:', error);
+                    });
+            }
+
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${minutes < 10 ? '0' : ''}${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+
+            function updateTabTitle() {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = Math.floor(timeLeft % 60);
+                const formattedTime = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                const titlePrefix = isWorkTime ? 'Work' : 'Break';
+
+                if ((twoHourCycleEnabled && totalPomodoroSeconds >= TWO_HOURS_IN_SECONDS) || (twoHourThirtyCycleEnabled && totalPomodoroSeconds >= TWO_HOURS_THIRTY_IN_SECONDS) || (threeHourCycleEnabled && totalPomodoroSeconds >= THREE_HOURS_IN_SECONDS) || (threeHourThirtyCycleEnabled && totalPomodoroSeconds >= THREE_HOURS_THIRTY_IN_SECONDS) || (fourHourCycleEnabled && totalPomodoroSeconds >= FOUR_HOURS_IN_SECONDS) || (fourHourThirtyCycleEnabled && totalPomodoroSeconds >= FOUR_HOURS_THIRTY_IN_SECONDS) || (fiveHourCycleEnabled && totalPomodoroSeconds >= FIVE_HOURS_IN_SECONDS)) {
+                    document.title = "Cycle terminé!";
+                } else {
+                    document.title = `${titlePrefix} - ${formattedTime}`;
+                }
+            }
+
+            // Update the tab title every second if cycle not ended
+            setInterval(() => {
+                if (!cycleEnded) {
+                    updateTabTitle();
+                }
+            }, 1000);
+
+            // Fonction pour nettoyer le cache du navigateur
+            function clearBrowserCache() {
+                if ('caches' in window) {
+                    caches.keys().then(function (cacheNames) {
+                        cacheNames.forEach(function (cacheName) {
+                            caches.delete(cacheName);
+                        });
+                    });
+                }
+                // Nettoyer le cache du service worker
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function (registrations) {
+                        for (let registration of registrations) {
+                            registration.unregister();
+                        }
+                    });
+                }
+                // Forcer le rafraîchissement des ressources
+                window.location.reload(true);
+            }
+        });
+    </script>
+</body>
+
+</html>

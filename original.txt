@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="dark-mode">
+    <div class="container center-content">
+        <h1>Pomodoro Tracker</h1>
+        <div class="timers">
+            <div class="progress-container">
+                <svg class="progress-ring" width="120" height="120">
+                    <circle class="progress-ring__circle" stroke="green" stroke-width="4" fill="transparent" r="54"
+                        cx="60" cy="60" />
+                </svg>
+                <div id="timer" class="time-display">25:00</div>
+                <div id="work-cycle-notification" class="notification">0</div>
+            </div>
+            <div class="progress-container">
+                <svg class="progress-ring" width="120" height="120">
+                    <circle class="progress-ring__circle total-progress-ring__circle" stroke="green" stroke-width="4"
+                        fill="transparent" r="54" cx="60" cy="60" />
+                </svg>
+                <div id="total-time-display" class="time-display">00:00:00</div>
+            </div>
+        </div>
+        <div class="buttons">
+            <button id="start-button">Start</button>
+            <button id="reset-button">Reset</button>
+            <button id="theme-toggle-button">Light Mode</button>
+            <button id="set-30s-button">30s Cycle</button>
+            <button id="set-5s-button">5s Cycle</button>
+            <button id="start-2h-cycle-button">Start 2h Cycle</button>
+            <button id="start-3h-cycle-button">Start 3h Cycle</button>
+            <button id="start-5h-cycle-button">Start 5h Cycle</button>
+        </div>
+        <h2>Ajouter ou Retirer les heures cumulées</h2>
+        <form id="manual-entry-form" class="manual-entry-form">
+            <label for="hours-input">Heures :</label>
+            <input type="number" id="hours-input" min="0" placeholder="Heures">
+            <div class="form-buttons">
+                <button type="button" id="add-time-button">Ajouter</button>
+                <button type="button" id="subtract-time-button">Retirer</button>
+            </div>
+        </form>
+        <h2>Heures totales de Pomodoro : <span id="total-hours">00:00:00</span></h2>
+        <button id="reset-hours-button">Réinitialiser les Heures</button>
+        <div id="spotify-info">
+            <h2>Spotify Now Playing</h2>
+            <div id="spotify-track">Track: <span id="track-name">None</span></div>
+            <div id="spotify-artist">Artist: <span id="artist-name">None</span></div>
+        </div>
+        <audio id="decompte-sound" src="alarme/decompte.mp3"></audio>
+        <audio id="bell-sound" src="alarme/bell.mp3"></audio>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const FULL_DASH_ARRAY = 2 * Math.PI * 54;
+            const WORK_TIME_DEFAULT = 25 * 60; // 25 minutes in seconds
+            const BREAK_TIME_DEFAULT = 5 * 60; // 5 minutes in seconds
+            const WORK_TIME_30S = 30; // 30 seconds
+            const WORK_TIME_5S = 5; // 5 seconds
+            const TWO_HOURS_IN_SECONDS = 2 * 60 * 60; // 2 hours in seconds
+            const THREE_HOURS_IN_SECONDS = 3 * 60 * 60; // 3 hours in seconds
+            const FIVE_HOURS_IN_SECONDS = 5 * 60 * 60; // 5 hours in seconds
+            const WORK_TIME_50 = 50 * 60; // 50 minutes in seconds
+            const BREAK_TIME_10 = 10 * 60; // 10 minutes in seconds
+
+            let workTimeSeconds = WORK_TIME_DEFAULT;
+            let breakTimeSeconds = BREAK_TIME_DEFAULT;
+            let timePassed = 0;
+            let timeLeft = workTimeSeconds;
+            let isWorkTime = true;
+            let timerInterval = null;
+            let totalPomodoroSeconds = 0;
+            let manualTotalSeconds = parseInt(localStorage.getItem('manualTotalSeconds')) || 0;
+            let workCycleCount = parseInt(localStorage.getItem('workCycleCount')) || 0;
+            let decomptePlayed = false;
+            let bellPlayed = false;
+            let twoHourCycleInterval = null;
+            let threeHourCycleInterval = null;
+            let fiveHourCycleInterval = null;
+            let currentCycleType = '';
+
+            const timerDisplay = document.getElementById('timer');
+            const totalTimeDisplay = document.getElementById('total-time-display');
+            const progressCircle = document.querySelectorAll('.progress-ring__circle')[0];
+            const totalProgressCircle = document.querySelectorAll('.progress-ring__circle')[1];
+            const startButton = document.getElementById('start-button');
+            const resetButton = document.getElementById('reset-button');
+            const themeToggleButton = document.getElementById('theme-toggle-button');
+            const addTimeButton = document.getElementById('add-time-button');
+            const subtractTimeButton = document.getElementById('subtract-time-button');
+            const set30sButton = document.getElementById('set-30s-button');
+            const set5sButton = document.getElementById('set-5s-button');
+            const start2hCycleButton = document.getElementById('start-2h-cycle-button');
+            const start3hCycleButton = document.getElementById('start-3h-cycle-button');
+            const start5hCycleButton = document.getElementById('start-5h-cycle-button');
+            const hoursInput = document.getElementById('hours-input');
+            const totalHoursDisplay = document.getElementById('total-hours');
+            const resetHoursButton = document.getElementById('reset-hours-button');
+            const workCycleNotification = document.getElementById('work-cycle-notification');
+            const spotifyTrackName = document.getElementById('track-name');
+            const spotifyArtistName = document.getElementById('artist-name');
+            const decompteSound = document.getElementById('decompte-sound');
+            const bellSound = document.getElementById('bell-sound');
+
+            const SPOTIFY_CLIENT_ID = 'c2002d2367b34e34b13cdb83a2c97b2b';
+            const SPOTIFY_CLIENT_SECRET = '1069f6ca6c1a41029ffdf7936d3a4d90';
+            const SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:5500/pomodoro.html';
+
+            let accessToken = '';
+
+            progressCircle.style.strokeDasharray = `${FULL_DASH_ARRAY} ${FULL_DASH_ARRAY}`;
+            progressCircle.style.strokeDashoffset = FULL_DASH_ARRAY;
+
+            totalProgressCircle.style.strokeDasharray = `${FULL_DASH_ARRAY} ${FULL_DASH_ARRAY}`;
+            totalProgressCircle.style.strokeDashoffset = FULL_DASH_ARRAY;
+
+            startButton.addEventListener('click', toggleTimer);
+            resetButton.addEventListener('click', resetAllTimers);
+            themeToggleButton.addEventListener('click', toggleTheme);
+            addTimeButton.addEventListener('click', addManualTime);
+            subtractTimeButton.addEventListener('click', subtractManualTime);
+            resetHoursButton.addEventListener('click', resetManualTotalHours);
+            set30sButton.addEventListener('click', () => setWorkTime(WORK_TIME_30S));
+            set5sButton.addEventListener('click', () => setWorkTime(WORK_TIME_5S));
+            start2hCycleButton.addEventListener('click', toggleTwoHourCycle);
+            start3hCycleButton.addEventListener('click', toggleThreeHourCycle);
+            start5hCycleButton.addEventListener('click', toggleFiveHourCycle);
+
+            updateManualTotalTimeDisplay();
+            updateTotalTimeDisplay();
+            workCycleNotification.textContent = workCycleCount;
+
+            accessToken = extractAccessTokenFromUrl();
+            if (!accessToken) {
+                getSpotifyAccessToken();
+            } else {
+                setInterval(fetchCurrentlyPlaying, 1000);
+            }
+
+            function startTimer() {
+                timerInterval = setInterval(() => {
+                    timePassed += 1;
+                    timeLeft = (isWorkTime ? workTimeSeconds : breakTimeSeconds) - timePassed;
+                    totalPomodoroSeconds += 1;
+
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = timeLeft % 60;
+                    timerDisplay.textContent = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                    updateTabTitle();
+
+                    if (isWorkTime && timeLeft <= 30 && !bellPlayed) {
+                        bellSound.play();
+                        bellPlayed = true;
+                    }
+
+                    if (timeLeft <= 5 && !decomptePlayed) {
+                        decompteSound.play();
+                        decomptePlayed = true;
+                    }
+
+                    updateTotalTimeDisplay();
+                    setCircleDashoffset(progressCircle, timeLeft / (isWorkTime ? workTimeSeconds : breakTimeSeconds));
+                    setCircleDashoffset(totalProgressCircle, totalPomodoroSeconds / workTimeSeconds);
+
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        isWorkTime = !isWorkTime;
+                        timePassed = 0;
+                        decomptePlayed = false;
+                        bellPlayed = false;
+                        if (isWorkTime) {
+                            workCycleCount++;
+                            localStorage.setItem('workCycleCount', workCycleCount);
+                            workCycleNotification.textContent = workCycleCount;
+                        }
+                        startTimer(); // Start the next period immediately
+                    }
+                }, 1000);
+            }
+
+            function setCircleDashoffset(circle, fraction) {
+                const circleDashoffset = FULL_DASH_ARRAY * (1 - fraction);
+                circle.style.strokeDashoffset = circleDashoffset;
+            }
+
+            function toggleTimer() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    decompteSound.pause();
+                    decompteSound.currentTime = 0;
+                    startButton.textContent = 'Start';
+                } else {
+                    startTimer();
+                    startButton.textContent = 'Pause';
+                    if (timeLeft <= 5 && !decomptePlayed) {
+                        decompteSound.play();
+                        decomptePlayed = true;
+                    }
+                }
+            }
+
+            function resetAllTimers() {
+                clearInterval(timerInterval);
+                clearInterval(twoHourCycleInterval);
+                clearInterval(threeHourCycleInterval);
+                clearInterval(fiveHourCycleInterval);
+                timerInterval = null;
+                twoHourCycleInterval = null;
+                threeHourCycleInterval = null;
+                fiveHourCycleInterval = null;
+                timePassed = 0;
+                timeLeft = WORK_TIME_DEFAULT;
+                workTimeSeconds = WORK_TIME_DEFAULT;
+                breakTimeSeconds = BREAK_TIME_DEFAULT;
+                totalPomodoroSeconds = 0;
+                isWorkTime = true;
+                decomptePlayed = false;
+                bellPlayed = false;
+                decompteSound.pause();
+                decompteSound.currentTime = 0;
+                bellSound.pause();
+                bellSound.currentTime = 0;
+                timerDisplay.textContent = formatTime(workTimeSeconds);
+                totalTimeDisplay.textContent = '00:00:00';
+                workCycleCount = 0;
+                localStorage.setItem('workCycleCount', workCycleCount);
+                workCycleNotification.textContent = workCycleCount;
+                setCircleDashoffset(progressCircle, 1);
+                setCircleDashoffset(totalProgressCircle, 1);
+                startButton.textContent = 'Start';
+                start2hCycleButton.textContent = 'Start 2h Cycle';
+                start3hCycleButton.textContent = 'Start 3h Cycle';
+                start5hCycleButton.textContent = 'Start 5h Cycle';
+                currentCycleType = '';
+                updateTabTitle();
+            }
+
+            function setWorkTime(seconds) {
+                workTimeSeconds = seconds;
+                resetTimerDisplay();
+            }
+
+            function setCycle(workTime, breakTime, cycleType) {
+                workTimeSeconds = workTime;
+                breakTimeSeconds = breakTime;
+                currentCycleType = cycleType;
+                resetTimerDisplay();
+            }
+
+            function resetTimerDisplay() {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                timePassed = 0;
+                timeLeft = workTimeSeconds;
+                decomptePlayed = false;
+                bellPlayed = false;
+                decompteSound.pause();
+                decompteSound.currentTime = 0;
+                bellSound.pause();
+                bellSound.currentTime = 0;
+                timerDisplay.textContent = formatTime(workTimeSeconds);
+                setCircleDashoffset(progressCircle, 1);
+                startButton.textContent = 'Start';
+                updateTabTitle();
+            }
+
+            function toggleTheme() {
+                document.body.classList.toggle('dark-mode');
+                document.body.classList.toggle('light-mode');
+                themeToggleButton.textContent = document.body.classList.contains('dark-mode') ? 'Light Mode' : 'Dark Mode';
+            }
+
+            function addManualTime() {
+                const hours = parseInt(hoursInput.value) || 0;
+                const additionalSeconds = hours * 3600;
+                manualTotalSeconds += additionalSeconds;
+                localStorage.setItem('manualTotalSeconds', manualTotalSeconds);
+                updateManualTotalTimeDisplay();
+                clearInputs();
+            }
+
+            function subtractManualTime() {
+                const hours = parseInt(hoursInput.value) || 0;
+                const subtractionSeconds = hours * 3600;
+                manualTotalSeconds = Math.max(0, manualTotalSeconds - subtractionSeconds);
+                localStorage.setItem('manualTotalSeconds', manualTotalSeconds);
+                updateManualTotalTimeDisplay();
+                clearInputs();
+            }
+
+            function resetManualTotalHours() {
+                manualTotalSeconds = 0;
+                localStorage.setItem('manualTotalSeconds', manualTotalSeconds);
+                updateManualTotalTimeDisplay();
+            }
+
+            function clearInputs() {
+                hoursInput.value = '';
+            }
+
+            function updateManualTotalTimeDisplay() {
+                const totalHours = Math.floor(manualTotalSeconds / 3600);
+                const totalMinutes = Math.floor((manualTotalSeconds % 3600) / 60);
+                const totalSecs = manualTotalSeconds % 60;
+                totalHoursDisplay.textContent = `${totalHours < 10 ? '0' : ''}${totalHours}:${totalMinutes < 10 ? '0' : ''}${totalMinutes}:${totalSecs < 10 ? '0' : ''}${totalSecs}`;
+            }
+
+            function updateTotalTimeDisplay() {
+                const totalHours = Math.floor(totalPomodoroSeconds / 3600);
+                const totalMinutes = Math.floor((totalPomodoroSeconds % 3600) / 60);
+                const totalSecs = totalPomodoroSeconds % 60;
+                totalTimeDisplay.textContent = `${totalHours < 10 ? '0' : ''}${totalHours}:${totalMinutes < 10 ? '0' : ''}${totalMinutes}:${totalSecs < 10 ? '0' : ''}${totalSecs}`;
+            }
+
+            function getSpotifyAccessToken() {
+                window.location.href = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}&scope=user-read-playback-state user-read-currently-playing`;
+            }
+
+            function extractAccessTokenFromUrl() {
+                const hash = window.location.hash;
+                if (hash) {
+                    const params = new URLSearchParams(hash.substring(1));
+                    return params.get('access_token');
+                }
+                return null;
+            }
+
+            function fetchCurrentlyPlaying() {
+                if (!accessToken) return;
+                fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    }
+                })
+                    .then(function (response) {
+                        if (response.status === 204) {
+                            spotifyTrackName.textContent = 'None';
+                            spotifyArtistName.textContent = 'None';
+                            return null;
+                        }
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        if (data && data.item) {
+                            spotifyTrackName.textContent = data.item.name;
+                            spotifyArtistName.textContent = data.item.artists.map(function (artist) { return artist.name; }).join(', ');
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('Error fetching currently playing track:', error);
+                    });
+            }
+
+            function toggleTwoHourCycle() {
+                if (twoHourCycleInterval) {
+                    clearInterval(twoHourCycleInterval);
+                    twoHourCycleInterval = null;
+                    resetAllTimers();
+                } else {
+                    resetAllTimers();
+                    twoHourCycleInterval = setInterval(() => {
+                        totalPomodoroSeconds += 1;
+                        if (totalPomodoroSeconds >= TWO_HOURS_IN_SECONDS) {
+                            clearInterval(twoHourCycleInterval);
+                            twoHourCycleInterval = null;
+                            resetAllTimers();
+                        }
+                        updateTotalTimeDisplay();
+                    }, 1000);
+                    startTimer();
+                    start2hCycleButton.textContent = 'Stop 2h Cycle';
+                }
+            }
+
+            function toggleThreeHourCycle() {
+                if (threeHourCycleInterval) {
+                    clearInterval(threeHourCycleInterval);
+                    threeHourCycleInterval = null;
+                    resetAllTimers();
+                } else {
+                    resetAllTimers();
+                    threeHourCycleInterval = setInterval(() => {
+                        totalPomodoroSeconds += 1;
+                        if (totalPomodoroSeconds >= THREE_HOURS_IN_SECONDS) {
+                            clearInterval(threeHourCycleInterval);
+                            threeHourCycleInterval = null;
+                            resetAllTimers();
+                        }
+                        updateTotalTimeDisplay();
+                    }, 1000);
+                    startTimer();
+                    start3hCycleButton.textContent = 'Stop 3h Cycle';
+                }
+            }
+
+            function toggleFiveHourCycle() {
+                if (fiveHourCycleInterval) {
+                    clearInterval(fiveHourCycleInterval);
+                    fiveHourCycleInterval = null;
+                    resetAllTimers();
+                } else {
+                    resetAllTimers();
+                    fiveHourCycleInterval = setInterval(() => {
+                        totalPomodoroSeconds += 1;
+                        if (totalPomodoroSeconds >= FIVE_HOURS_IN_SECONDS) {
+                            clearInterval(fiveHourCycleInterval);
+                            fiveHourCycleInterval = null;
+                            resetAllTimers();
+                        }
+                        updateTotalTimeDisplay();
+                    }, 1000);
+                    startTimer();
+                    start5hCycleButton.textContent = 'Stop 5h Cycle';
+                }
+            }
+
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${minutes < 10 ? '0' : ''}${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+
+            function updateTabTitle() {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                const formattedTime = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                const titlePrefix = isWorkTime ? 'Work' : 'Break';
+                document.title = `${titlePrefix} - ${formattedTime}`;
+            }
+        });
+    </script>
+</body>
+
+</html>
