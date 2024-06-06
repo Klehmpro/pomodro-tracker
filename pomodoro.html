@@ -150,7 +150,7 @@
 
             const SPOTIFY_CLIENT_ID = 'c2002d2367b34e34b13cdb83a2c97b2b';
             const SPOTIFY_CLIENT_SECRET = '1069f6ca6c1a41029ffdf7936d3a4d90';
-            const SPOTIFY_REDIRECT_URI = 'https://pomodro-tracker-7ya8.vercel.app/';
+            const SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:5500/pomodoro.html';
 
             let accessToken = '';
             let spotifyInterval = null;
@@ -461,6 +461,7 @@
                     document.getElementById('enable-2h-cycle').checked = false;
                     document.getElementById('enable-2h30-cycle').checked = false;
                     document.getElementById('enable-3h-cycle').checked = false;
+                    document.getElementById('enable-3h30-cycle').checked = false;
                     document.getElementById('enable-4h-cycle').checked = false;
                     document.getElementById('enable-4h30-cycle').checked = false;
                     document.getElementById('enable-5h-cycle').checked = false;
